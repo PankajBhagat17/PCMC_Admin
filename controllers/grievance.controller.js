@@ -3,35 +3,17 @@ const User = require('../models/User');
 
 exports.submitGrievance = async (req, res) => {
     try {
-        // Now accepting latitude and longitude from the frontend
-        const { rawText, userId, latitude, longitude } = req.body;
+        const { rawText, userId, location } = req.body;
 
-        // 1. Fetch citizen's profile for the fallback location
+        // 1. Fetch citizen profile as backup if location wasn't provided
         const citizen = await User.findById(userId);
         if (!citizen) {
             return res.status(404).json({ message: "Citizen profile not found." });
         }
         
-        let finalLocation = `${citizen.address.flat}, ${citizen.address.street}, Ward ${citizen.address.ward}`;
+        const finalLocation = location || `${citizen.address.flat}, ${citizen.address.street}, Ward ${citizen.address.ward}`;
 
-        // 2. If live GPS coordinates were sent, convert them to a readable street address
-        if (latitude && longitude) {
-            try {
-                const geoResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-                if (geoResponse.ok) {
-                    const geoData = await geoResponse.json();
-                    // Use the live street address, or raw coordinates if the street name isn't available
-                    finalLocation = geoData.display_name || `Live GPS: ${latitude}, ${longitude}`;
-                } else {
-                    finalLocation = `Live GPS: ${latitude}, ${longitude}`;
-                }
-            } catch (geoError) {
-                console.error("Geocoding API failed, falling back to raw coordinates.");
-                finalLocation = `Live GPS: ${latitude}, ${longitude}`;
-            }
-        }
-
-        // 3. Send text to the Python AI Microservice!
+        // 2. Send text to the Python AI Microservice!
         let aiResult = { department: "General Administration", urgency: "Medium" }; 
         
         try {
@@ -51,15 +33,13 @@ exports.submitGrievance = async (req, res) => {
             console.error("⚠️ Python AI Engine is offline. Falling back to default routing.");
         }
 
-        // 4. Save the routed grievance to MongoDB with the correct location string
+        // 3. Save the routed grievance to MongoDB with the manual location
         const newGrievance = new Grievance({
             citizenId: userId,
             rawText: rawText,
             department: aiResult.department,
             urgency: aiResult.urgency,
             location: finalLocation,
-            latitude: latitude || null,
-            longitude: longitude || null,
             status: 'New'
         });
 
@@ -108,14 +88,12 @@ exports.getStats = async (req, res) => {
     try {
         const total = await Grievance.countDocuments();
         
-        // Count grievances by status
         const statusData = await Grievance.aggregate([
             { $group: { _id: "$status", count: { $sum: 1 } } }
         ]);
 
-        // Count grievances by department
         const deptData = await Grievance.aggregate([
-            { $group: { _id: "$department", count: { $sum: 1 } } }, {$sort: { count: -1 } } // Sort highest to lowest
+            { $group: { _id: "$department", count: { $sum: 1 } } }, {$sort: { count: -1 } }
         ]);
 
         res.status(200).json({ 
@@ -143,7 +121,7 @@ exports.submitFeedback = async (req, res) => {
             grievance.feedbackVerification = 'Satisfied';
         } else {
             grievance.feedbackVerification = 'Unsatisfied';
-            grievance.status = 'Reopened'; // Escalation protocol
+            grievance.status = 'Reopened';
         }
         
         await grievance.save();
