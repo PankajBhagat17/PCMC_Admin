@@ -10,7 +10,10 @@ const app = express();
 // 1. UPDATE: Use Render's port, or fallback to 3000 for local testing
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+app.use(cors({
+    origin: ['https://pcmc-frontend-tnkh.vercel.app', 'http://localhost:3000', 'http://127.0.0.1:5500'],
+    credentials: true
+}));
 app.use(express.json());
 
 // 2. UPDATE: Use Render's Environment Variable for MongoDB, or fallback to local
