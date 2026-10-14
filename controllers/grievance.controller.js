@@ -6,15 +6,32 @@ exports.submitGrievance = async (req, res) => {
         // Now accepting latitude and longitude from the frontend
         const { rawText, userId, latitude, longitude } = req.body;
 
-        // 1. Fetch citizen's auto-saved location
+        // 1. Fetch citizen's profile for the fallback location
         const citizen = await User.findById(userId);
         if (!citizen) {
             return res.status(404).json({ message: "Citizen profile not found." });
         }
         
-        const autoLocation = `${citizen.address.flat}, ${citizen.address.street}, Ward ${citizen.address.ward}`;
+        let finalLocation = `${citizen.address.flat}, ${citizen.address.street}, Ward ${citizen.address.ward}`;
 
-        // 2. Send text to the Python AI Microservice!
+        // 2. If live GPS coordinates were sent, convert them to a readable street address
+        if (latitude && longitude) {
+            try {
+                const geoResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                if (geoResponse.ok) {
+                    const geoData = await geoResponse.json();
+                    // Use the live street address, or raw coordinates if the street name isn't available
+                    finalLocation = geoData.display_name || `Live GPS: ${latitude}, ${longitude}`;
+                } else {
+                    finalLocation = `Live GPS: ${latitude}, ${longitude}`;
+                }
+            } catch (geoError) {
+                console.error("Geocoding API failed, falling back to raw coordinates.");
+                finalLocation = `Live GPS: ${latitude}, ${longitude}`;
+            }
+        }
+
+        // 3. Send text to the Python AI Microservice!
         let aiResult = { department: "General Administration", urgency: "Medium" }; 
         
         try {
@@ -34,13 +51,13 @@ exports.submitGrievance = async (req, res) => {
             console.error("⚠️ Python AI Engine is offline. Falling back to default routing.");
         }
 
-        // 3. Save the routed grievance to MongoDB WITH GPS coordinates
+        // 4. Save the routed grievance to MongoDB with the correct location string
         const newGrievance = new Grievance({
             citizenId: userId,
             rawText: rawText,
             department: aiResult.department,
             urgency: aiResult.urgency,
-            location: autoLocation,
+            location: finalLocation,
             latitude: latitude || null,
             longitude: longitude || null,
             status: 'New'
