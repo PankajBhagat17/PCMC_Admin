@@ -103,10 +103,20 @@ exports.getAllGrievances = async (req, res) => {
     }
 };
 
-// Get a single grievance by ID (Required for ticket details view)
+// Get a single grievance by ID or 8-character short code (Supports PCMC- prefix)
 exports.getGrievanceById = async (req, res) => {
     try {
-        const grievance = await Grievance.findById(req.params.id).populate('citizenId');
+        let queryId = req.params.id.replace(/^PCMC-/i, '').trim();
+        
+        let grievance;
+        if (queryId.length === 24) {
+            grievance = await Grievance.findById(queryId).populate('citizenId');
+        } else {
+            // Search by 8-character prefix if short code was provided
+            const all = await Grievance.find().populate('citizenId');
+            grievance = all.find(g => g._id.toString().toLowerCase().startsWith(queryId.toLowerCase()));
+        }
+
         if (!grievance) {
             return res.status(404).json({ error: "Grievance not found" });
         }
