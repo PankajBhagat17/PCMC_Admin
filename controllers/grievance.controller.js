@@ -103,6 +103,19 @@ exports.getAllGrievances = async (req, res) => {
     }
 };
 
+// Get a single grievance by ID (Required for ticket details view)
+exports.getGrievanceById = async (req, res) => {
+    try {
+        const grievance = await Grievance.findById(req.params.id).populate('citizenId');
+        if (!grievance) {
+            return res.status(404).json({ error: "Grievance not found" });
+        }
+        res.json(grievance);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
 // Update status
 exports.updateStatus = async (req, res) => {
     try {

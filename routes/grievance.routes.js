@@ -8,6 +8,9 @@ router.post('/', grievanceController.createGrievance);
 // Route to fetch all grievances for the dashboard
 router.get('/', grievanceController.getAllGrievances);
 
+// Route to fetch a single grievance by ID (Fixes the ticket detail view)
+router.get('/:id', grievanceController.getGrievanceById);
+
 // Route to update a grievance's status
 router.patch('/:id/status', grievanceController.updateStatus);
 
