@@ -22,6 +22,11 @@ mongoose.connect(MONGO_URI)
   .then(() => console.log('✅ MongoDB connected successfully'))
   .catch((err) => console.error('❌ MongoDB connection error:', err));
 
+// Render Health Check Route - Prevents Deploy Timeouts
+app.get('/', (req, res) => {
+    res.status(200).send('PCMC-Admin Backend is live and running!');
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/grievances', grievanceRoutes);
 
@@ -40,6 +45,7 @@ app.get('/api/stats', async (req, res) => {
 
 app.use(express.static(path.join(__dirname, '../')));
 
-app.listen(PORT, () => {
+// EXPLICITLY bind to 0.0.0.0 for Render's cloud networking
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server is running on port ${PORT}`);
 });
