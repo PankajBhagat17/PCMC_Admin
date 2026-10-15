@@ -1,16 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const grievanceController = require('../controllers/grievance.controller');
-const authMiddleware = require('../middlewares/auth.middleware');
 
-router.post('/submit', authMiddleware, grievanceController.submitGrievance);
-router.get('/all', grievanceController.getAllGrievances);
+// Route to submit a new grievance
+router.post('/', grievanceController.createGrievance);
 
-// MUST BE BEFORE /:id
-router.get('/stats', grievanceController.getStats);
+// Route to fetch all grievances for the dashboard
+router.get('/', grievanceController.getAllGrievances);
 
-router.get('/:id', grievanceController.getGrievanceById);
-router.post('/:id/feedback', authMiddleware, grievanceController.submitFeedback);
-router.patch('/:id/status', authMiddleware, grievanceController.updateStatus);
+// Route to update a grievance's status
+router.patch('/:id/status', grievanceController.updateStatus);
 
 module.exports = router;
