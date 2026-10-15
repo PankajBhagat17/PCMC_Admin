@@ -36,16 +36,44 @@ const fallbackCategorize = (text) => {
 exports.createGrievance = async (req, res) => {
     try {
         const { location, rawText } = req.body;
+        let finalDepartment = 'General Administration';
+        let finalUrgency = 'Low';
 
-        // Bypass offline Python AI and use the reliable fallback
-        console.log("Using keyword fallback routing for new grievance...");
-        const aiResult = fallbackCategorize(rawText);
+        try {
+            // 1. Try hitting the live Python AI Engine first
+            console.log("Attempting to reach Python AI Engine...");
+            
+            // 🔴 IMPORTANT: Replace this URL with your actual Render URL for the Python AI 🔴
+            const aiUrl = 'https://pcmc-ai-engine.onrender.com/predict'; 
+            
+            const aiResponse = await fetch(aiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: rawText }),
+                signal: AbortSignal.timeout(5000) // Give up if Python takes longer than 5 seconds
+            });
 
+            if (!aiResponse.ok) throw new Error(`AI Server returned status: ${aiResponse.status}`);
+            
+            const aiData = await aiResponse.json();
+            finalDepartment = aiData.department || 'General Administration';
+            finalUrgency = aiData.urgency || 'Low';
+            console.log(`✅ Successfully categorized via Python AI: ${finalDepartment}`);
+
+        } catch (aiError) {
+            // 2. If Python is offline, asleep, or fails, use the keyword fallback instantly
+            console.log("⚠️ AI Engine offline or timed out. Using keyword fallback.", aiError.message);
+            const fallbackResult = fallbackCategorize(rawText);
+            finalDepartment = fallbackResult.department;
+            finalUrgency = fallbackResult.urgency;
+        }
+
+        // 3. Save to MongoDB
         const newGrievance = new Grievance({
             location,
             rawText,
-            department: aiResult.department,
-            urgency: aiResult.urgency,
+            department: finalDepartment,
+            urgency: finalUrgency,
             status: 'New'
         });
 
