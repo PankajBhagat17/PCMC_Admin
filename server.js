@@ -10,8 +10,13 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors({
-    // FIXED: Matched the exact URL from your Vercel deployment
-    origin: ['https://frontend-tnkh.vercel.app', 'http://localhost:3000', 'http://127.0.0.1:5500'],
+    // Added the correct pcmc-frontend URL
+    origin: [
+        'https://pcmc-frontend-tnkh.vercel.app', 
+        'https://frontend-tnkh.vercel.app', 
+        'http://localhost:3000', 
+        'http://127.0.0.1:5500'
+    ],
     credentials: true
 }));
 app.use(express.json());
