@@ -2,7 +2,7 @@ const Grievance = require('../models/Grievance');
 
 // Smart Node.js Fallback Routing
 const fallbackCategorize = (text) => {
-    const lower = text.toLowerCase();
+    const lower = (text || "").toLowerCase();
     
     if (lower.includes('water') || lower.includes('pipe') || lower.includes('leak') || lower.includes('drain')) {
         return { department: 'Water Supply & Drainage', urgency: 'High' };
@@ -35,18 +35,23 @@ const fallbackCategorize = (text) => {
 // Create a new grievance
 exports.createGrievance = async (req, res) => {
     try {
-        const { location, rawText } = req.body;
+        // Pull ALL fields your frontend might send, including the required citizenId
+        const { citizenId, location, rawText, description, issue, text, latitude, longitude } = req.body;
+        
+        // Dynamically catch the text regardless of the frontend variable name
+        const actualText = rawText || description || issue || text || "";
+        
         let finalDepartment = 'General Administration';
         let finalUrgency = 'Low';
 
         try {
-            console.log("Attempting to reach Python AI Engine...");
+            console.log("Attempting to reach Python AI Engine with text:", actualText);
             const aiUrl = 'https://pcmc-ai-engine.onrender.com/predict';
             
             const aiResponse = await fetch(aiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: rawText })
+                body: JSON.stringify({ text: actualText })
             });
 
             if (!aiResponse.ok) throw new Error(`AI Server returned status: ${aiResponse.status}`);
@@ -58,15 +63,18 @@ exports.createGrievance = async (req, res) => {
 
         } catch (aiError) {
             console.log("AI Engine offline or timed out. Using keyword fallback.");
-            const fallbackResult = fallbackCategorize(rawText);
+            const fallbackResult = fallbackCategorize(actualText);
             finalDepartment = fallbackResult.department;
             finalUrgency = fallbackResult.urgency;
         }
 
-        // Save to MongoDB
+        // Save to MongoDB, matching your Grievance.js schema perfectly
         const newGrievance = new Grievance({
+            citizenId: citizenId || "60d5ec49f1b2c8b1f8e4e1a1", // Fallback ID in case frontend forgets it
             location,
-            rawText,
+            latitude,
+            longitude,
+            rawText: actualText,
             department: finalDepartment,
             urgency: finalUrgency,
             status: 'New'
@@ -77,7 +85,7 @@ exports.createGrievance = async (req, res) => {
 
     } catch (error) {
         console.error("Failed to create grievance:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Internal server error", error: error.message });
     }
 };
 
