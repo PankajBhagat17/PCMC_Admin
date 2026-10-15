@@ -28,6 +28,7 @@ const fallbackCategorize = (text) => {
     return { department: 'General Administration', urgency: 'Low' };
 };
 
+// Create a new grievance
 exports.createGrievance = async (req, res) => {
     try {
         const { citizenId, location, rawText, description, issue, text, latitude, longitude } = req.body;
@@ -49,7 +50,7 @@ exports.createGrievance = async (req, res) => {
             if (!aiResponse.ok) throw new Error(`AI Server returned status: ${aiResponse.status}`);
             
             const aiData = await aiResponse.json();
-            console.log("Raw AI Response:", aiData);
+            console.log("Raw AI Response:", aiData); 
             
             let tempDept = aiData.department || aiData.prediction || aiData.category || null;
 
@@ -92,6 +93,7 @@ exports.createGrievance = async (req, res) => {
     }
 };
 
+// Get all grievances
 exports.getAllGrievances = async (req, res) => {
     try {
         const grievances = await Grievance.find().sort({ createdAt: -1 });
@@ -101,6 +103,7 @@ exports.getAllGrievances = async (req, res) => {
     }
 };
 
+// Update status
 exports.updateStatus = async (req, res) => {
     try {
         const { id } = req.params;
