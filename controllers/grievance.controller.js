@@ -1,38 +1,33 @@
 const Grievance = require('../models/Grievance');
 
+// Strict list of exact frontend departments
+const validDepartments = [
+    'Water Supply & Drainage',
+    'Public Works (PWD)',
+    'Electrical Department',
+    'Solid Waste Management',
+    'Public Health',
+    'Encroachment',
+    'Parks & Gardens',
+    'Property Tax'
+];
+
 // Smart Node.js Fallback Routing
 const fallbackCategorize = (text) => {
     const lower = (text || "").toLowerCase();
     
-    if (lower.includes('water') || lower.includes('pipe') || lower.includes('leak') || lower.includes('drain')) {
-        return { department: 'Water Supply & Drainage', urgency: 'High' };
-    }
-    if (lower.includes('road') || lower.includes('pothole') || lower.includes('bridge')) {
-        return { department: 'Public Works (PWD)', urgency: 'Medium' };
-    }
-    if (lower.includes('light') || lower.includes('electric') || lower.includes('wire') || lower.includes('power')) {
-        return { department: 'Electrical Department', urgency: 'High' };
-    }
-    if (lower.includes('garbage') || lower.includes('waste') || lower.includes('trash') || lower.includes('dustbin')) {
-        return { department: 'Solid Waste Management', urgency: 'Medium' };
-    }
-    if (lower.includes('dog') || lower.includes('animal') || lower.includes('mosquito') || lower.includes('health')) {
-        return { department: 'Public Health', urgency: 'Medium' };
-    }
-    if (lower.includes('encroach') || lower.includes('illegal') || lower.includes('stall')) {
-        return { department: 'Encroachment', urgency: 'Low' };
-    }
-    if (lower.includes('tree') || lower.includes('park') || lower.includes('garden') || lower.includes('branch')) {
-        return { department: 'Parks & Gardens', urgency: 'Low' };
-    }
-    if (lower.includes('tax') || lower.includes('property') || lower.includes('bill')) {
-        return { department: 'Property Tax', urgency: 'Low' };
-    }
+    if (lower.includes('water') || lower.includes('pipe') || lower.includes('leak') || lower.includes('drain')) return { department: 'Water Supply & Drainage', urgency: 'High' };
+    if (lower.includes('road') || lower.includes('pothole') || lower.includes('bridge')) return { department: 'Public Works (PWD)', urgency: 'Medium' };
+    if (lower.includes('light') || lower.includes('electric') || lower.includes('wire') || lower.includes('power')) return { department: 'Electrical Department', urgency: 'High' };
+    if (lower.includes('garbage') || lower.includes('waste') || lower.includes('trash') || lower.includes('dustbin') || lower.includes('dust')) return { department: 'Solid Waste Management', urgency: 'Medium' };
+    if (lower.includes('dog') || lower.includes('animal') || lower.includes('mosquito') || lower.includes('health')) return { department: 'Public Health', urgency: 'Medium' };
+    if (lower.includes('encroach') || lower.includes('illegal') || lower.includes('stall')) return { department: 'Encroachment', urgency: 'Low' };
+    if (lower.includes('tree') || lower.includes('park') || lower.includes('garden') || lower.includes('branch')) return { department: 'Parks & Gardens', urgency: 'Low' };
+    if (lower.includes('tax') || lower.includes('property') || lower.includes('bill')) return { department: 'Property Tax', urgency: 'Low' };
     
     return { department: 'General Administration', urgency: 'Low' };
 };
 
-// Create a new grievance
 exports.createGrievance = async (req, res) => {
     try {
         const { citizenId, location, rawText, description, issue, text, latitude, longitude } = req.body;
@@ -54,19 +49,19 @@ exports.createGrievance = async (req, res) => {
             if (!aiResponse.ok) throw new Error(`AI Server returned status: ${aiResponse.status}`);
             
             const aiData = await aiResponse.json();
-            console.log("Raw AI Response:", aiData); // This will log exactly what Python is sending
+            console.log("Raw AI Response:", aiData);
             
-            // Check for multiple possible keys the AI might use
-            finalDepartment = aiData.department || aiData.prediction || aiData.category || null;
-            finalUrgency = aiData.urgency || 'Low';
+            let tempDept = aiData.department || aiData.prediction || aiData.category || null;
 
-            // DOUBLE-SAFETY NET: If AI response is missing the correct key or defaults to General Admin, force the keyword fallback
-            if (!finalDepartment || finalDepartment === 'General Administration') {
-                console.log("AI returned unsure/missing category. Forcing keyword fallback...");
+            // BULLETPROOF CHECK: If AI is missing, unsure, or returns a weird name, force the fallback
+            if (!tempDept || !validDepartments.includes(tempDept) || tempDept === 'General Administration') {
+                console.log("AI returned unsure/invalid category. Forcing keyword fallback...");
                 const fallbackResult = fallbackCategorize(actualText);
                 finalDepartment = fallbackResult.department;
                 finalUrgency = fallbackResult.urgency;
             } else {
+                finalDepartment = tempDept;
+                finalUrgency = aiData.urgency || 'Low';
                 console.log(`Successfully categorized via Python AI: ${finalDepartment}`);
             }
 
@@ -97,7 +92,6 @@ exports.createGrievance = async (req, res) => {
     }
 };
 
-// Get all grievances
 exports.getAllGrievances = async (req, res) => {
     try {
         const grievances = await Grievance.find().sort({ createdAt: -1 });
@@ -107,22 +101,13 @@ exports.getAllGrievances = async (req, res) => {
     }
 };
 
-// Update status
 exports.updateStatus = async (req, res) => {
     try {
         const { id } = req.params;
         const { status } = req.body;
         
-        const updatedGrievance = await Grievance.findByIdAndUpdate(
-            id,
-            { status },
-            { new: true }
-        );
-        
-        if (!updatedGrievance) {
-            return res.status(404).json({ message: "Grievance not found" });
-        }
-        
+        const updatedGrievance = await Grievance.findByIdAndUpdate(id, { status }, { new: true });
+        if (!updatedGrievance) return res.status(404).json({ message: "Grievance not found" });
         res.json(updatedGrievance);
     } catch (error) {
         res.status(500).json({ message: "Error updating status" });
