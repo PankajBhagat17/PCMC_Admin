@@ -44,8 +44,7 @@ exports.createGrievance = async (req, res) => {
             console.log("Attempting to reach Python AI Engine...");
             
             // 🔴 IMPORTANT: Replace this URL with your actual Render URL for the Python AI 🔴
-            const aiUrl = 'https://pcmc-ai-engine.onrender.com/predict'; 
-            
+const aiUrl = 'https://pcmc-ai-engine.onrender.com/predict';            
             const aiResponse = await fetch(aiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
