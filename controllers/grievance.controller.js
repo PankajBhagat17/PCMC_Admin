@@ -35,10 +35,7 @@ const fallbackCategorize = (text) => {
 // Create a new grievance
 exports.createGrievance = async (req, res) => {
     try {
-        // Pull ALL fields your frontend might send, including the required citizenId
         const { citizenId, location, rawText, description, issue, text, latitude, longitude } = req.body;
-        
-        // Dynamically catch the text regardless of the frontend variable name
         const actualText = rawText || description || issue || text || "";
         
         let finalDepartment = 'General Administration';
@@ -57,9 +54,21 @@ exports.createGrievance = async (req, res) => {
             if (!aiResponse.ok) throw new Error(`AI Server returned status: ${aiResponse.status}`);
             
             const aiData = await aiResponse.json();
-            finalDepartment = aiData.department || 'General Administration';
+            console.log("Raw AI Response:", aiData); // This will log exactly what Python is sending
+            
+            // Check for multiple possible keys the AI might use
+            finalDepartment = aiData.department || aiData.prediction || aiData.category || null;
             finalUrgency = aiData.urgency || 'Low';
-            console.log(`Successfully categorized via Python AI: ${finalDepartment}`);
+
+            // DOUBLE-SAFETY NET: If AI response is missing the correct key or defaults to General Admin, force the keyword fallback
+            if (!finalDepartment || finalDepartment === 'General Administration') {
+                console.log("AI returned unsure/missing category. Forcing keyword fallback...");
+                const fallbackResult = fallbackCategorize(actualText);
+                finalDepartment = fallbackResult.department;
+                finalUrgency = fallbackResult.urgency;
+            } else {
+                console.log(`Successfully categorized via Python AI: ${finalDepartment}`);
+            }
 
         } catch (aiError) {
             console.log("AI Engine offline or timed out. Using keyword fallback.");
@@ -68,9 +77,8 @@ exports.createGrievance = async (req, res) => {
             finalUrgency = fallbackResult.urgency;
         }
 
-        // Save to MongoDB, matching your Grievance.js schema perfectly
         const newGrievance = new Grievance({
-            citizenId: citizenId || "60d5ec49f1b2c8b1f8e4e1a1", // Fallback ID in case frontend forgets it
+            citizenId: citizenId || "60d5ec49f1b2c8b1f8e4e1a1",
             location,
             latitude,
             longitude,
@@ -85,7 +93,7 @@ exports.createGrievance = async (req, res) => {
 
     } catch (error) {
         console.error("Failed to create grievance:", error);
-        res.status(500).json({ message: "Internal server error", error: error.message });
+        res.status(500).json({ message: "Internal server error" });
     }
 };
 
