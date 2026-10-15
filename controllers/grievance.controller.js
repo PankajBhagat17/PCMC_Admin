@@ -106,13 +106,16 @@ exports.getAllGrievances = async (req, res) => {
 // Update status
 exports.updateStatus = async (req, res) => {
     try {
-        const { id } = req.params;
-        const { status } = req.body;
-        
-        const updatedGrievance = await Grievance.findByIdAndUpdate(id, { status }, { new: true });
-        if (!updatedGrievance) return res.status(404).json({ message: "Grievance not found" });
+        const updatedGrievance = await Grievance.findByIdAndUpdate(
+            req.params.id,
+            { status: req.body.status },
+            { new: true }
+        );
+        if (!updatedGrievance) {
+            return res.status(404).json({ error: "Grievance not found" });
+        }
         res.json(updatedGrievance);
-    } catch (error) {
-        res.status(500).json({ message: "Error updating status" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 };
